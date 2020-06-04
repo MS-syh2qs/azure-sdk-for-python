@@ -4,6 +4,7 @@
 # Licensed under the MIT License.
 # ------------------------------------
 
+import pytest
 import functools
 from azure.core.credentials import AzureKeyCredential
 from azure.core.exceptions import HttpResponseError, ServiceRequestError, ClientAuthenticationError
@@ -66,7 +67,7 @@ class TestCustomFormsFromUrl(FormRecognizerTest):
     def test_custom_form_bad_url(self, client, container_sas_url):
         fr_client = client.get_form_recognizer_client()
 
-        poller = client.begin_train_model(container_sas_url, use_training_labels=True)
+        poller = client.begin_training(container_sas_url, use_training_labels=True)
         model = poller.result()
 
         with self.assertRaises(HttpResponseError):
@@ -81,7 +82,7 @@ class TestCustomFormsFromUrl(FormRecognizerTest):
     def test_custom_form_unlabeled(self, client, container_sas_url):
         fr_client = client.get_form_recognizer_client()
 
-        poller = client.begin_train_model(container_sas_url, use_training_labels=False)
+        poller = client.begin_training(container_sas_url, use_training_labels=False)
         model = poller.result()
 
         poller = fr_client.begin_recognize_custom_forms_from_url(model.model_id, self.form_url_jpg)
@@ -101,7 +102,7 @@ class TestCustomFormsFromUrl(FormRecognizerTest):
     def test_form_multipage_unlabeled(self, client, container_sas_url, blob_sas_url):
         fr_client = client.get_form_recognizer_client()
 
-        poller = client.begin_train_model(container_sas_url, use_training_labels=False)
+        poller = client.begin_training(container_sas_url, use_training_labels=False)
         model = poller.result()
 
         poller = fr_client.begin_recognize_custom_forms_from_url(
@@ -125,7 +126,7 @@ class TestCustomFormsFromUrl(FormRecognizerTest):
     def test_custom_form_labeled(self, client, container_sas_url):
         fr_client = client.get_form_recognizer_client()
 
-        poller = client.begin_train_model(container_sas_url, use_training_labels=True)
+        poller = client.begin_training(container_sas_url, use_training_labels=True)
         model = poller.result()
 
         poller = fr_client.begin_recognize_custom_forms_from_url(model.model_id, self.form_url_jpg)
@@ -144,7 +145,7 @@ class TestCustomFormsFromUrl(FormRecognizerTest):
     def test_form_multipage_labeled(self, client, container_sas_url, blob_sas_url):
         fr_client = client.get_form_recognizer_client()
 
-        poller = client.begin_train_model(
+        poller = client.begin_training(
             container_sas_url,
             use_training_labels=True
         )
@@ -171,7 +172,7 @@ class TestCustomFormsFromUrl(FormRecognizerTest):
     def test_custom_form_unlabeled_transform(self, client, container_sas_url):
         fr_client = client.get_form_recognizer_client()
 
-        poller = client.begin_train_model(container_sas_url, use_training_labels=False)
+        poller = client.begin_training(container_sas_url, use_training_labels=False)
         model = poller.result()
 
         responses = []
@@ -196,8 +197,8 @@ class TestCustomFormsFromUrl(FormRecognizerTest):
         actual_fields = actual.analyze_result.page_results[0].key_value_pairs
 
         self.assertFormPagesTransformCorrect(recognized_form[0].pages, read_results, page_results)
-        self.assertEqual(recognized_form[0].page_range.first_page, page_results[0].page)
-        self.assertEqual(recognized_form[0].page_range.last_page, page_results[0].page)
+        self.assertEqual(recognized_form[0].page_range.first_page_number, page_results[0].page)
+        self.assertEqual(recognized_form[0].page_range.last_page_number, page_results[0].page)
         self.assertUnlabeledFormFieldDictTransformCorrect(recognized_form[0].fields, actual_fields, read_results)
 
     @GlobalFormRecognizerAccountPreparer()
@@ -205,7 +206,7 @@ class TestCustomFormsFromUrl(FormRecognizerTest):
     def test_custom_form_multipage_unlabeled_transform(self, client, container_sas_url, blob_sas_url):
         fr_client = client.get_form_recognizer_client()
 
-        poller = client.begin_train_model(container_sas_url, use_training_labels=False)
+        poller = client.begin_training(container_sas_url, use_training_labels=False)
         model = poller.result()
 
         responses = []
@@ -231,8 +232,8 @@ class TestCustomFormsFromUrl(FormRecognizerTest):
         self.assertFormPagesTransformCorrect(recognized_form, read_results, page_results, bug_skip_text_content=True)
 
         for form, actual in zip(recognized_form, page_results):
-            self.assertEqual(form.page_range.first_page, actual.page)
-            self.assertEqual(form.page_range.last_page, actual.page)
+            self.assertEqual(form.page_range.first_page_number, actual.page)
+            self.assertEqual(form.page_range.last_page_number, actual.page)
             self.assertUnlabeledFormFieldDictTransformCorrect(form.fields, actual.key_value_pairs, read_results, bug_skip_text_content=True)
 
 
@@ -241,7 +242,7 @@ class TestCustomFormsFromUrl(FormRecognizerTest):
     def test_form_labeled_transform(self, client, container_sas_url):
         fr_client = client.get_form_recognizer_client()
 
-        poller = client.begin_train_model(container_sas_url, use_training_labels=True)
+        poller = client.begin_training(container_sas_url, use_training_labels=True)
         model = poller.result()
 
         responses = []
@@ -266,8 +267,8 @@ class TestCustomFormsFromUrl(FormRecognizerTest):
         actual_fields = actual.analyze_result.document_results[0].fields
 
         self.assertFormPagesTransformCorrect(recognized_form[0].pages, read_results, page_results)
-        self.assertEqual(recognized_form[0].page_range.first_page, page_results[0].page)
-        self.assertEqual(recognized_form[0].page_range.last_page, page_results[0].page)
+        self.assertEqual(recognized_form[0].page_range.first_page_number, page_results[0].page)
+        self.assertEqual(recognized_form[0].page_range.last_page_number, page_results[0].page)
         self.assertLabeledFormFieldDictTransformCorrect(recognized_form[0].fields, actual_fields, read_results)
 
     @GlobalFormRecognizerAccountPreparer()
@@ -275,7 +276,7 @@ class TestCustomFormsFromUrl(FormRecognizerTest):
     def test_custom_form_multipage_labeled_transform(self, client, container_sas_url, blob_sas_url):
         fr_client = client.get_form_recognizer_client()
 
-        poller = client.begin_train_model(container_sas_url, use_training_labels=True)
+        poller = client.begin_training(container_sas_url, use_training_labels=True)
         model = poller.result()
 
         responses = []
@@ -301,7 +302,31 @@ class TestCustomFormsFromUrl(FormRecognizerTest):
 
         self.assertFormPagesTransformCorrect(recognized_form, read_results, page_results)
         for form, actual in zip(recognized_form, document_results):
-            self.assertEqual(form.page_range.first_page, actual.page_range[0])
-            self.assertEqual(form.page_range.last_page, actual.page_range[1])
+            self.assertEqual(form.page_range.first_page_number, actual.page_range[0])
+            self.assertEqual(form.page_range.last_page_number, actual.page_range[1])
             self.assertEqual(form.form_type, "form-"+model.model_id)
             self.assertLabeledFormFieldDictTransformCorrect(form.fields, actual.fields, read_results)
+
+    @GlobalFormRecognizerAccountPreparer()
+    @GlobalTrainingAccountPreparer()
+    @pytest.mark.live_test_only
+    def test_custom_form_continuation_token(self, client, container_sas_url):
+        fr_client = client.get_form_recognizer_client()
+
+        training_poller = client.begin_training(container_sas_url, use_training_labels=False)
+        model = training_poller.result()
+
+        initial_poller = fr_client.begin_recognize_custom_forms_from_url(
+            model.model_id,
+            self.form_url_jpg
+        )
+
+        cont_token = initial_poller.continuation_token()
+        poller = fr_client.begin_recognize_custom_forms_from_url(
+            model.model_id,
+            self.form_url_jpg,
+            continuation_token=cont_token
+        )
+        result = poller.result()
+        self.assertIsNotNone(result)
+        initial_poller.wait()  # necessary so azure-devtools doesn't throw assertion error

@@ -43,11 +43,12 @@ class AccessTokenReplacer(RecordingProcessor):
         import json
         try:
             body = json.loads(response['body']['string'])
-            body['accessToken'] = self._replacement
+            if 'accessToken' in body:
+                body['accessToken'] = self._replacement
+            response['body']['string'] = json.dumps(body)
+            return response
         except (KeyError, ValueError):
             return response
-        response['body']['string'] = json.dumps(body)
-        return response
 
 
 class FakeTokenCredential(object):
@@ -117,18 +118,18 @@ class FormRecognizerTest(AzureTestCase):
         if unlabeled:
             if actual.keys.clusters:
                 for cluster_id, fields in actual.keys.clusters.items():
-                    self.assertEqual(cluster_id, model.models[int(cluster_id)].form_type[-1])
-                    for field_idx, model_field in model.models[int(cluster_id)].fields.items():
+                    self.assertEqual(cluster_id, model.submodels[int(cluster_id)].form_type[-1])
+                    for field_idx, model_field in model.submodels[int(cluster_id)].fields.items():
                         self.assertIn(model_field.label, fields)
 
         else:
             if actual.train_result:
                 if actual.train_result.fields:
                     for a in actual.train_result.fields:
-                        self.assertEqual(model.models[0].fields[a.field_name].name, a.field_name)
-                        self.assertEqual(model.models[0].fields[a.field_name].accuracy, a.accuracy)
-                    self.assertEqual(model.models[0].form_type, "form-"+model.model_id)
-                    self.assertEqual(model.models[0].accuracy, actual.train_result.average_model_accuracy)
+                        self.assertEqual(model.submodels[0].fields[a.field_name].name, a.field_name)
+                        self.assertEqual(model.submodels[0].fields[a.field_name].accuracy, a.accuracy)
+                    self.assertEqual(model.submodels[0].form_type, "form-"+model.model_id)
+                    self.assertEqual(model.submodels[0].accuracy, actual.train_result.average_model_accuracy)
 
     def assertFormPagesTransformCorrect(self, pages, actual_read, page_result=None, **kwargs):
         for page, actual_page in zip(pages, actual_read):
@@ -262,16 +263,17 @@ class FormRecognizerTest(AzureTestCase):
         actual = actual_items.value_array
 
         for r, a in zip(items, actual):
-            self.assertFormFieldTransformCorrect(r.name, a.value_object.get("Name"), read_results)
-            self.assertFormFieldTransformCorrect(r.quantity, a.value_object.get("Quantity"), read_results)
-            self.assertFormFieldTransformCorrect(r.total_price, a.value_object.get("TotalPrice"), read_results)
-            self.assertFormFieldTransformCorrect(r.price, a.value_object.get("Price"), read_results)
+            self.assertFormFieldTransformCorrect(r.value.get("Name"), a.value_object.get("Name"), read_results)
+            self.assertFormFieldTransformCorrect(r.value.get("Quantity"), a.value_object.get("Quantity"), read_results)
+            self.assertFormFieldTransformCorrect(r.value.get("TotalPrice"), a.value_object.get("TotalPrice"), read_results)
+            self.assertFormFieldTransformCorrect(r.value.get("Price"), a.value_object.get("Price"), read_results)
 
     def assertTablesTransformCorrect(self, layout, actual_layout, read_results=None, **kwargs):
         for table, actual_table in zip(layout, actual_layout):
             self.assertEqual(table.row_count, actual_table.rows)
             self.assertEqual(table.column_count, actual_table.columns)
             for cell, actual_cell in zip(table.cells, actual_table.cells):
+                self.assertEqual(table.page_number, cell.page_number)
                 self.assertEqual(cell.text, actual_cell.text)
                 self.assertEqual(cell.row_index, actual_cell.row_index)
                 self.assertEqual(cell.column_index, actual_cell.column_index)
@@ -286,24 +288,24 @@ class FormRecognizerTest(AzureTestCase):
 
     def assertReceiptItemsHasValues(self, items, page_number, include_text_content):
         for item in items:
-            self.assertBoundingBoxHasPoints(item.name.value_data.bounding_box)
-            self.assertIsNotNone(item.name.confidence)
-            self.assertIsNotNone(item.name.value_data.text)
-            self.assertBoundingBoxHasPoints(item.quantity.value_data.bounding_box)
-            self.assertIsNotNone(item.quantity.confidence)
-            self.assertIsNotNone(item.quantity.value_data.text)
-            self.assertBoundingBoxHasPoints(item.total_price.value_data.bounding_box)
-            self.assertIsNotNone(item.total_price.confidence)
-            self.assertIsNotNone(item.total_price.value_data.text)
+            self.assertBoundingBoxHasPoints(item.value.get("Name").value_data.bounding_box)
+            self.assertIsNotNone(item.value.get("Name").confidence)
+            self.assertIsNotNone(item.value.get("Name").value_data.text)
+            self.assertBoundingBoxHasPoints(item.value.get("Quantity").value_data.bounding_box)
+            self.assertIsNotNone(item.value.get("Quantity").confidence)
+            self.assertIsNotNone(item.value.get("Quantity").value_data.text)
+            self.assertBoundingBoxHasPoints(item.value.get("TotalPrice").value_data.bounding_box)
+            self.assertIsNotNone(item.value.get("TotalPrice").confidence)
+            self.assertIsNotNone(item.value.get("TotalPrice").value_data.text)
 
             if include_text_content:
-                self.assertTextContentHasValues(item.name.value_data.text_content, page_number)
-                self.assertTextContentHasValues(item.name.value_data.text_content, page_number)
-                self.assertTextContentHasValues(item.name.value_data.text_content, page_number)
+                self.assertTextContentHasValues(item.value.get("Name").value_data.text_content, page_number)
+                self.assertTextContentHasValues(item.value.get("Name").value_data.text_content, page_number)
+                self.assertTextContentHasValues(item.value.get("Name").value_data.text_content, page_number)
             else:
-                self.assertIsNone(item.name.value_data.text_content)
-                self.assertIsNone(item.name.value_data.text_content)
-                self.assertIsNone(item.name.value_data.text_content)
+                self.assertIsNone(item.value.get("Name").value_data.text_content)
+                self.assertIsNone(item.value.get("Name").value_data.text_content)
+                self.assertIsNone(item.value.get("Name").value_data.text_content)
 
     def assertBoundingBoxHasPoints(self, box):
         if box is None:
@@ -334,6 +336,7 @@ class FormRecognizerTest(AzureTestCase):
 
             if page.tables:
                 for table in page.tables:
+                    self.assertEqual(table.page_number, page.page_number)
                     self.assertIsNotNone(table.row_count)
                     self.assertIsNotNone(table.column_count)
                     for cell in table.cells:
